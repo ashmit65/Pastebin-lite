@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getNow } from "@/lib/now";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  const { id } = params;
+
   const { data: paste } = await supabase
     .from("pastes")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (!paste) {
@@ -23,16 +28,18 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     return NextResponse.json({ error: "View limit exceeded" }, { status: 404 });
   }
 
-  // Atomic increment
+  // count view (API only)
   await supabase
     .from("pastes")
     .update({ views_used: paste.views_used + 1 })
-    .eq("id", params.id);
+    .eq("id", id);
 
   return NextResponse.json({
     content: paste.content,
     remaining_views:
-      paste.max_views === null ? null : paste.max_views - paste.views_used - 1,
-    expires_at: paste.expires_at
+      paste.max_views === null
+        ? null
+        : paste.max_views - paste.views_used - 1,
+    expires_at: paste.expires_at,
   });
 }
