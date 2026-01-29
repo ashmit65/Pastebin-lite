@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getNow } from "@/lib/now";
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await context.params;
 
   const { data: paste } = await supabase
     .from("pastes")
@@ -28,7 +28,7 @@ export async function GET(
     return NextResponse.json({ error: "View limit exceeded" }, { status: 404 });
   }
 
-  // count view (API only)
+  // Count view ONLY in API
   await supabase
     .from("pastes")
     .update({ views_used: paste.views_used + 1 })
