@@ -112,10 +112,12 @@ const styles = {
     resize: "vertical",
   },
   row: {
-    display: "flex",
-    gap: 10,
-    marginTop: 12,
-  },
+  display: "flex",
+  flexDirection: "column",
+  gap: 10,
+  marginTop: 12,
+},
+
   input: {
     flex: 1,
     padding: 10,
