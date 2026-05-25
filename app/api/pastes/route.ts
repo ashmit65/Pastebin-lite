@@ -2,12 +2,18 @@ import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
 import { supabase } from "@/lib/supabase";
 import { getNow } from "@/lib/now";
+import { env } from "@/lib/env";
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  let body: { content?: unknown; ttl_seconds?: unknown; max_views?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
   const { content, ttl_seconds, max_views } = body;
 
-  // Validation
   if (!content || typeof content !== "string" || !content.trim()) {
     return NextResponse.json({ error: "Invalid content" }, { status: 400 });
   }
@@ -27,24 +33,30 @@ export async function POST(req: Request) {
   }
 
   const id = nanoid(10);
-  const now = getNow();
-
+  const now = await getNow();
   const expires_at = ttl_seconds
-    ? new Date(now.getTime() + ttl_seconds * 1000).toISOString()
+    ? new Date(now.getTime() + Number(ttl_seconds) * 1000).toISOString()
     : null;
 
-  await supabase.from("pastes").insert({
+  const { error } = await supabase.from("pastes").insert({
     id,
-    content,
+    content: content.trim(),
     expires_at,
-    max_views: max_views ?? null, // ✅ important fix
+    max_views: max_views ?? null,
   });
 
-  const origin = req.headers.get("origin");
+  if (error) {
+    console.error("Create paste failed:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to create paste",
+        detail: error.message,
+        code: error.code,
+      },
+      { status: 500 }
+    );
+  }
 
-  return NextResponse.json({
-    id,
-    url: `${origin}/p/${id}`,
-  });
+  const origin = env.appUrl ?? new URL(req.url).origin;
+  return NextResponse.json({ id, url: `${origin}/p/${id}` });
 }
-

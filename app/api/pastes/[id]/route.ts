@@ -8,17 +8,29 @@ export async function GET(
 ) {
   const { id } = await context.params;
 
-  const { data: paste } = await supabase
+  const { data: paste, error: selectError } = await supabase
     .from("pastes")
-    .select("*")
+    .select("id,content,expires_at,max_views,views_used")
     .eq("id", id)
     .single();
+
+  if (selectError) {
+    console.error("Fetch paste failed:", selectError);
+    return NextResponse.json(
+      {
+        error: "Failed to fetch paste",
+        detail: selectError.message,
+        code: selectError.code,
+      },
+      { status: 500 }
+    );
+  }
 
   if (!paste) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const now = getNow();
+  const now = await getNow();
 
   if (paste.expires_at && new Date(paste.expires_at) <= now) {
     return NextResponse.json({ error: "Expired" }, { status: 404 });
@@ -29,10 +41,21 @@ export async function GET(
   }
 
   // Count view ONLY in API
-  await supabase
+  const { error: updateError } = await supabase
     .from("pastes")
     .update({ views_used: paste.views_used + 1 })
     .eq("id", id);
+  if (updateError) {
+    console.error("Update views failed:", updateError);
+    return NextResponse.json(
+      {
+        error: "Failed to update paste views",
+        detail: updateError.message,
+        code: updateError.code,
+      },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({
     content: paste.content,
